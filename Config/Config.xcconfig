@@ -1,0 +1,7 @@
+GEMINI_API_KEY=
+GOOGLE_BOOKS_API_KEY=
+ABEBOOKS_CLIENT_KEY=
+GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-preview-12-2025
+GEMINI_TEXT_MODEL=gemini-2.5-flash
+
+#include? "Secrets.xcconfig"
