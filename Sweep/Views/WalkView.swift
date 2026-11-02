@@ -1,6 +1,7 @@
 import ARKit
 import RealityKit
 import SwiftUI
+import TipKit
 
 struct WalkView: View {
     @ObservedObject var session: SweepSession
@@ -25,6 +26,7 @@ struct WalkView: View {
                     direction
                 }
                 control
+                    .modifier(EndWalkTipAnchor(practice: session.practice))
             }
             .padding(.horizontal, 22)
             .padding(.bottom, 28)
@@ -82,9 +84,8 @@ struct WalkView: View {
         let filed = session.engine.books.filter { !$0.excluded }
         let rows = session.packet == nil ? Array(filed.suffix(4)) : filed
         return VStack(alignment: .leading, spacing: 6) {
-            Text(filed.isEmpty ? "WALK THIS ROOM ONCE, THEN END THE WALK" : "\(filed.count) BOOKS")
-                .font(Theme.mono(11))
-                .tracking(1.2)
+            Text(filed.isEmpty ? "Walk this room once, then end the walk." : "\(filed.count) \(filed.count == 1 ? "book" : "books")")
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.ash)
             Group {
                 if rows.count > 5 {
@@ -126,14 +127,14 @@ struct WalkView: View {
 
     private var direction: some View {
         Text(session.engine.instruction)
-            .font(Theme.sans(18, weight: .light))
+            .font(.body)
             .foregroundStyle(Theme.cloud)
             .multilineTextAlignment(.center)
             .lineLimit(5)
             .padding(.horizontal, 22)
             .padding(.vertical, 16)
             .frame(maxWidth: 340)
-            .background(Theme.abyss.opacity(0.88), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var control: some View {
@@ -141,11 +142,12 @@ struct WalkView: View {
             if session.packet != nil {
                 dismiss()
             } else {
+                EndWalkTip().invalidate(reason: .actionPerformed)
                 Task { await session.endWalk() }
             }
         } label: {
             Text(walkButton)
-                .font(Theme.sans(16))
+                .font(.headline)
                 .foregroundStyle(Theme.void)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 12)
@@ -187,33 +189,28 @@ struct DistanceRings: View {
     }
 }
 
+private struct EndWalkTipAnchor: ViewModifier {
+    var practice: Bool
+
+    func body(content: Content) -> some View {
+        if practice {
+            content
+        } else {
+            content.popoverTip(EndWalkTip(), arrowEdge: .top)
+        }
+    }
+}
+
 struct SpineGuide: View {
     var straighten: Bool
 
     var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(.white.opacity(0.9), lineWidth: 2)
-                    .frame(width: 46, height: 68)
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(Theme.cyan)
-                    .frame(width: 9, height: 68)
-                    .offset(x: 18)
-                Image(systemName: straighten ? "arrow.up" : "arrow.triangle.2.circlepath")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .offset(x: 52)
-            }
-            .frame(width: 140, height: 72)
-            Text(straighten ? "HOLD STILL" : "WALK THE SHELF")
-                .font(Theme.mono(11))
-                .tracking(1.2)
-                .foregroundStyle(Theme.cloud)
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .background(Theme.abyss.opacity(0.88), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        Label(straighten ? "Hold still" : "Walk the shelf", systemImage: straighten ? "pause.circle" : "figure.walk")
+            .font(.headline)
+            .foregroundStyle(Theme.cloud)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .background(.ultraThinMaterial, in: Capsule())
     }
 }
 

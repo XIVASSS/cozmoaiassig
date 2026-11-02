@@ -1,7 +1,9 @@
 import SwiftUI
+import TipKit
 
 struct WalksView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
     @State private var practice: SweepSession?
 
     var body: some View {
@@ -10,7 +12,7 @@ struct WalksView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     PageTitle(
                         title: "Walks",
-                        subtitle: "Each finished walk keeps its packet. A later confirmation writes the next version."
+                        subtitle: "Each finished walk keeps its packet. Confirming a hunch writes the next version."
                     )
                     Button {
                         practice = SweepSession(settings: model.settings, store: model.store, practice: true)
@@ -45,7 +47,16 @@ struct WalksView: View {
                 .padding(20)
             }
             .sweepScreen()
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close")
+                }
+            }
             .onAppear { model.reload() }
             .fullScreenCover(item: $practice, onDismiss: { model.reload() }) { live in
                 WalkView(session: live)
@@ -56,45 +67,66 @@ struct WalksView: View {
 
 struct ReviewView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
     @State private var busyID = ""
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 22) {
                     PageTitle(
                         title: "Review",
-                        subtitle: "Hunches, missing prices, art, and scale disagreements. Nothing here is in the money."
+                        subtitle: "Each walk keeps its own hunches. Nothing here is in the money."
                     )
-                    let entries = model.reviewEntries()
-                    if entries.isEmpty {
+                    TipView(ReviewPageTip())
+                    let walks = reviewWalks
+                    if walks.isEmpty {
                         EmptyNote(text: "The queue is empty.")
                     }
-                    ForEach(entries) { entry in
-                        HStack(alignment: .center, spacing: 8) {
-                            NavigationLink {
-                                SessionDetailView(sessionID: entry.sessionID)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text(entry.isHunch ? entry.hunchTitle : entry.refID.uppercased())
-                                        .font(entry.isHunch ? Theme.sans(16, weight: .light) : Theme.mono(11))
-                                        .tracking(entry.isHunch ? 0 : 1)
-                                        .foregroundStyle(entry.isHunch ? Theme.cloud : Theme.ash)
-                                    Text(entry.reason)
-                                        .font(Theme.sans(16, weight: .light))
-                                        .foregroundStyle(Theme.cloud)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(18)
-                                .background(Theme.graphite)
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    ForEach(walks) { walk in
+                        VStack(alignment: .leading, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(walk.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(Theme.cloud)
+                                Text(walk.detail)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Theme.ash)
                             }
-                            .buttonStyle(.plain)
-                            if entry.isHunch {
-                                HunchMark(busy: busyID == entry.id) {
-                                    Task { await mark(entry, keep: true) }
-                                } reject: {
-                                    Task { await mark(entry, keep: false) }
+                            ForEach(walk.entries) { entry in
+                                HStack(alignment: .center, spacing: 8) {
+                                    NavigationLink {
+                                        SessionDetailView(sessionID: entry.sessionID)
+                                    } label: {
+                                        HStack(alignment: .center, spacing: 12) {
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                Text(entry.isHunch ? entry.hunchTitle : entry.reason)
+                                                    .font(.body)
+                                                    .foregroundStyle(Theme.cloud)
+                                                if entry.isHunch {
+                                                    Text(entry.reason)
+                                                        .font(.subheadline)
+                                                        .foregroundStyle(Theme.ash)
+                                                }
+                                            }
+                                            Spacer(minLength: 8)
+                                            Image(systemName: "chevron.right")
+                                                .font(.footnote.weight(.semibold))
+                                                .foregroundStyle(Theme.ash)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(18)
+                                        .background(Theme.graphite)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    }
+                                    .buttonStyle(.plain)
+                                    if entry.isHunch {
+                                        HunchMark(busy: busyID == entry.id) {
+                                            Task { await mark(entry, keep: true) }
+                                        } reject: {
+                                            Task { await mark(entry, keep: false) }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -103,9 +135,57 @@ struct ReviewView: View {
                 .padding(20)
             }
             .sweepScreen()
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close")
+                }
+            }
             .onAppear { model.reload() }
         }
+    }
+
+    private var reviewWalks: [ReviewWalk] {
+        let entries = model.reviewEntries()
+        var order: [String] = []
+        var grouped: [String: [ReviewEntry]] = [:]
+        for entry in entries {
+            if grouped[entry.sessionID] == nil {
+                order.append(entry.sessionID)
+            }
+            grouped[entry.sessionID, default: []].append(entry)
+        }
+        return order.compactMap { id in
+            guard let items = grouped[id] else { return nil }
+            let summary = model.sessions.first { $0.id == id }
+            return ReviewWalk(
+                id: id,
+                title: summary.map(Self.walkTitle) ?? "Walk",
+                detail: Self.walkDetail(summary: summary, count: items.count),
+                entries: items
+            )
+        }
+    }
+
+    private static func walkTitle(_ summary: SessionSummary) -> String {
+        let day = summary.capturedAt.formatted(.dateTime.day().month(.abbreviated))
+        let time = summary.capturedAt.formatted(.dateTime.hour().minute())
+        return "\(day) · \(time)"
+    }
+
+    private static func walkDetail(summary: SessionSummary?, count: Int) -> String {
+        let checks = count == 1 ? "1 to check" : "\(count) to check"
+        if summary?.practice == true {
+            return "Practice · \(checks)"
+        }
+        if let version = summary?.packetVersion, version > 0 {
+            return "Version \(version) · \(checks)"
+        }
+        return checks
     }
 
     private func mark(_ entry: ReviewEntry, keep: Bool) async {
@@ -119,8 +199,16 @@ struct ReviewView: View {
     }
 }
 
+private struct ReviewWalk: Identifiable {
+    var id: String
+    var title: String
+    var detail: String
+    var entries: [ReviewEntry]
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -136,12 +224,11 @@ struct SettingsView: View {
                     )
                     settingCard(title: "Second market", value: "Germany · EUR · same 10 books")
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("APPRAISAL")
-                            .font(Theme.mono(11))
-                            .tracking(1.4)
+                        Text("Appraisal")
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.ash)
                         Text("$\(Int(model.settings.appraisalThreshold))")
-                            .font(Theme.display(40))
+                            .font(.system(size: 40, weight: .semibold))
                             .foregroundStyle(Theme.cloud)
                         Slider(value: binding(\.appraisalThreshold), in: 25...500, step: 5)
                             .tint(Theme.cyan)
@@ -154,12 +241,11 @@ struct SettingsView: View {
                     .background(Theme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("SCALE DISAGREEMENT")
-                            .font(Theme.mono(11))
-                            .tracking(1.4)
+                        Text("Scale disagreement")
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.ash)
                         Text("\(Int(model.settings.disagreementThreshold * 100))%")
-                            .font(Theme.display(40))
+                            .font(.system(size: 40, weight: .semibold))
                             .foregroundStyle(Theme.cloud)
                         Slider(value: binding(\.disagreementThreshold), in: 0.03...0.25, step: 0.01)
                             .tint(Theme.cyan)
@@ -175,15 +261,23 @@ struct SettingsView: View {
                 .padding(20)
             }
             .sweepScreen()
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close")
+                }
+            }
         }
     }
 
     private func settingCard(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title.uppercased())
-                .font(Theme.mono(11))
-                .tracking(1.4)
+            Text(title)
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.ash)
             Text(value)
                 .font(Theme.sans(18, weight: .light))

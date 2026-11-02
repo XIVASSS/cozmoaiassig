@@ -1,5 +1,5 @@
-import CoreMotion
 import SwiftUI
+import TipKit
 import UIKit
 
 struct RootView: View {
@@ -10,7 +10,6 @@ struct RootView: View {
 
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
-    @StateObject private var tilt = TiltMotion()
     @StateObject private var place = PlaceLocator()
     @State private var session: SweepSession?
     @State private var showHistory = false
@@ -20,35 +19,51 @@ struct HomeView: View {
     var body: some View {
         GeometryReader { geo in
             let top = geo.safeAreaInsets.top
-            let bottom = geo.safeAreaInsets.bottom
             let corner = ScreenCurve.radius(for: geo.size)
+            let edge: CGFloat = 12
+            let screen = geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
             ZStack {
-                BubbleField(roll: tilt.roll, pitch: tilt.pitch)
+                BubbleField()
                     .ignoresSafeArea()
-                VStack(spacing: 12) {
+                VStack(spacing: edge) {
                     glassHero(topInset: top, corner: corner)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    HStack(spacing: 8) {
-                        Button { showHistory = true } label: { latestCard(radius: corner, bottomInset: bottom) }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: screen * 35 / 48)
+                    HStack(spacing: edge) {
+                        Button {
+                            LatestWalkTip().invalidate(reason: .actionPerformed)
+                            Walkthrough.advance(to: 3)
+                            showHistory = true
+                        } label: { latestCard(radius: corner - edge, bottomInset: 0) }
                             .buttonStyle(.plain)
-                        Button { showReview = true } label: { reviewCard(radius: corner, bottomInset: bottom) }
+                            .popoverTip(LatestWalkTip(), arrowEdge: .bottom)
+                        Button {
+                            ReviewTip().invalidate(reason: .actionPerformed)
+                            Walkthrough.advance(to: 2)
+                            showReview = true
+                        } label: { reviewCard(radius: corner - edge, bottomInset: 0) }
                             .buttonStyle(.plain)
+                            .popoverTip(ReviewTip(), arrowEdge: .bottom)
                     }
-                    .frame(height: 172 + bottom)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.horizontal, edge)
+                    .padding(.bottom, edge)
                 }
+                .frame(height: screen)
             }
             .ignoresSafeArea()
         }
         .background(Color.black.ignoresSafeArea())
         .onAppear {
-            tilt.start()
             place.start()
             model.reload()
         }
+        .task { await Walkthrough.watch(StartWalkTip(), advanceTo: 1) }
+        .task { await Walkthrough.watch(ReviewTip(), advanceTo: 2) }
+        .task { await Walkthrough.watch(LatestWalkTip(), advanceTo: 3) }
         .onChange(of: place.ready) { _, ready in
             if ready { adoptPlace() }
         }
-        .onDisappear { tilt.stop() }
         .fullScreenCover(item: $session, onDismiss: { model.reload() }) { live in
             WalkView(session: live)
         }
@@ -72,26 +87,29 @@ struct HomeView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
             Spacer(minLength: 0)
-            ZStack(alignment: .bottom) {
-                dial
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 210)
-                HStack {
-                    Button {
-                        openWalk(practice: true)
-                    } label: {
-                        Text("Practice")
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Practice the rules")
-                    Spacer()
+            Button {
+                StartWalkTip().invalidate(reason: .actionPerformed)
+                Walkthrough.advance(to: 1)
+                openWalk(practice: false)
+            } label: {
+                VStack(spacing: 8) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(.black)
+                        .frame(width: 68, height: 68)
+                        .background(.white, in: Circle())
+                    Text("Start walk")
+                        .font(.headline)
                     Text("One room")
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.72))
                 }
-                .font(Theme.sans(13))
-                .foregroundStyle(.white.opacity(0.72))
-                .padding(.horizontal, 28)
-                .padding(.bottom, 18)
+                .foregroundStyle(.white)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Start a walk of one room")
+            .popoverTip(StartWalkTip(), arrowEdge: .top)
+            .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background {
@@ -124,18 +142,38 @@ struct HomeView: View {
     }
 
     private var topBar: some View {
-        HStack {
-            glassButton("books.vertical", label: "Walks") { showHistory = true }
-            Spacer()
-            Button { showSettings = true } label: {
-                Text("Sweep")
-                    .font(Theme.sans(15, weight: .light))
-                    .foregroundStyle(.white.opacity(0.92))
+        ZStack {
+            Text("Sweep")
+                .font(.headline)
+                .foregroundStyle(.white)
+            HStack {
+                Button {
+                    PracticeTip().invalidate(reason: .actionPerformed)
+                    openWalk(practice: true)
+                } label: {
+                    Text("Practice")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(.white.opacity(0.16), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Practice the rules")
+                .popoverTip(PracticeTip(), arrowEdge: .bottom)
+                Spacer()
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 40, height: 40)
+                        .background(.white.opacity(0.16), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Settings")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Settings")
-            Spacer()
-            glassButton("checklist", label: "Review") { showReview = true }
         }
     }
 
@@ -154,68 +192,37 @@ struct HomeView: View {
                     .font(.system(size: 22, weight: .light))
                     .foregroundStyle(.white.opacity(0.72))
                 Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(place.currency)
-                        .font(Theme.sans(13, weight: .light))
-                    Text(place.ready ? place.city : "Finding this place")
-                        .font(Theme.sans(13, weight: .light))
-                        .lineLimit(1)
-                }
-                .foregroundStyle(.white.opacity(0.82))
-                .accessibilityLabel(place.ready ? "\(place.city), \(place.currency)" : "Finding this place")
             }
+            Label(place.ready ? "\(place.city) · \(place.currency)" : "Finding this place", systemImage: "location")
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.82))
+                .padding(.top, 8)
+                .accessibilityLabel(place.ready ? "Prices for \(place.city), \(place.currency)" : "Finding this place")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var dial: some View {
-        ZStack {
-            ToneDial(roll: tilt.roll, pitch: tilt.pitch)
-                .allowsHitTesting(false)
-            Button {
-                openWalk(practice: false)
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(.black)
-                    .frame(width: 68, height: 68)
-                    .background(.white, in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Start a walk. The camera stays off until you begin.")
-        }
     }
 
     private func latestCard(radius: CGFloat, bottomInset: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Latest packet")
-                    .font(Theme.sans(15, weight: .medium))
+                Text("Latest walk")
+                    .font(.headline)
                 Spacer(minLength: 6)
-                Text(share)
-                    .font(Theme.sans(13, weight: .light))
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.semibold))
             }
-            .foregroundStyle(.black.opacity(0.82))
+            .foregroundStyle(.black.opacity(0.88))
             Spacer(minLength: 8)
-            HStack {
-                Spacer()
-                VStack(spacing: 6) {
-                    Image(systemName: "book.closed")
-                        .font(.system(size: 16, weight: .medium))
-                    Text(latest == nil ? "NONE" : "OPEN")
-                        .font(Theme.mono(10))
-                        .tracking(0.8)
-                }
-                .foregroundStyle(.black.opacity(0.72))
-                .frame(width: 72, height: 72)
-                .background(.black.opacity(0.05), in: Circle())
-                Spacer()
-            }
             Text(caption)
-                .font(Theme.sans(13, weight: .light))
-                .foregroundStyle(.black.opacity(0.55))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.black.opacity(0.9))
                 .lineLimit(2)
-                .frame(maxWidth: .infinity)
+                .fixedSize(horizontal: false, vertical: true)
+            if latest != nil {
+                Text(share)
+                    .font(.subheadline)
+                    .foregroundStyle(.black.opacity(0.55))
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 18)
@@ -227,14 +234,20 @@ struct HomeView: View {
 
     private func reviewCard(radius: CGFloat, bottomInset: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("To review")
-                .font(Theme.sans(15, weight: .medium))
-                .foregroundStyle(.white.opacity(0.9))
+            HStack(alignment: .firstTextBaseline) {
+                Text("To review")
+                    .font(.headline)
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.semibold))
+                    .opacity(0.7)
+            }
+            .foregroundStyle(.white.opacity(0.92))
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(reviewCount)
-                    .font(.system(size: 48, weight: .light))
-                Text("lines")
-                    .font(.system(size: 16, weight: .light))
+                    .font(.system(size: 48, weight: .semibold))
+                Text("to check")
+                    .font(.body)
                     .opacity(0.75)
             }
             .foregroundStyle(.white)
@@ -254,23 +267,10 @@ struct HomeView: View {
     }
 
     private var reviewTrack: some View {
-        Text("Hunches, missing prices, and art. Nothing here is in the money.")
+        Text("Hunches and missing prices. Not in the total.")
             .font(Theme.sans(13, weight: .light))
             .foregroundStyle(.white.opacity(0.72))
             .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private func glassButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.white)
-                .frame(width: 40, height: 40)
-                .background(.white.opacity(0.16), in: Circle())
-                .overlay(Circle().stroke(.white.opacity(0.28), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 
     private func openWalk(practice: Bool) {
@@ -287,52 +287,30 @@ struct HomeView: View {
     }
 
     private var count: String {
-        guard let latest = model.sessions.first, latest.packetVersion > 0 else { return "—" }
+        guard let latest else { return "0" }
         return "\(latest.bookCount)"
     }
 
     private var latest: SessionSummary? {
-        guard let item = model.sessions.first, item.packetVersion > 0 else { return nil }
-        return item
+        model.sessions.first { $0.packetVersion > 0 }
     }
 
     private var share: String {
-        guard let latest else { return "—" }
-        guard latest.packetVersion > 0 else { return "Open" }
-        return "v\(latest.packetVersion)"
+        guard let latest else { return "" }
+        return "Version \(latest.packetVersion)"
     }
 
     private var caption: String {
         guard let latest else { return "Nothing filed yet." }
-        return "\(latest.bookCount) identified"
+        let books = latest.bookCount == 1 ? "book" : "books"
+        return "\(latest.bookCount) \(books) identified"
     }
 
     private var reviewCount: String {
-        guard let latest else { return "—" }
+        guard let latest else { return "0" }
         return "\(latest.reviewCount)"
     }
 
-}
-
-/// Device tilt, with a slow drift so the mark still moves when the phone is still.
-final class TiltMotion: ObservableObject {
-    @Published var roll = 0.0
-    @Published var pitch = 0.0
-    private let manager = CMMotionManager()
-
-    func start() {
-        guard manager.isDeviceMotionAvailable, !manager.isDeviceMotionActive else { return }
-        manager.deviceMotionUpdateInterval = 1.0 / 30.0
-        manager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
-            guard let self, let motion else { return }
-            self.roll = min(1, max(-1, motion.attitude.roll / 0.5))
-            self.pitch = min(1, max(-1, motion.attitude.pitch / 0.5))
-        }
-    }
-
-    func stop() {
-        manager.stopDeviceMotionUpdates()
-    }
 }
 
 /// Display corner radius in points. Apple's Liquid Glass layout calls this concentric:
@@ -396,16 +374,13 @@ private struct ScreenDock: ViewModifier {
     }
 }
 
-/// The fluid photo, larger than the screen, so tilt and a slow drift slide it.
+/// The fluid photo, larger than the screen, drifting slowly on its own.
 private struct BubbleField: View {
-    var roll: Double
-    var pitch: Double
-
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
-            let driftX = CGFloat(sin(time * 0.22) * 16 + roll * 46)
-            let driftY = CGFloat(cos(time * 0.17) * 12 + pitch * 34)
+            let driftX = CGFloat(sin(time * 0.22) * 16)
+            let driftY = CGFloat(cos(time * 0.17) * 12)
             GeometryReader { geo in
                 bubble
                     .scaledToFill()
@@ -434,62 +409,5 @@ private struct BubbleField: View {
     private var bundleImage: UIImage? {
         guard let url = Bundle.main.url(forResource: "FluidBubble", withExtension: "png") else { return nil }
         return UIImage(contentsOfFile: url.path)
-    }
-}
-
-/// A round tick dial. The mark follows the phone's tilt.
-private struct ToneDial: View {
-    var roll: Double
-    var pitch: Double
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            let wander = sin(t * 0.7) * 0.38 + sin(t * 0.23) * 0.16
-            let moving = abs(roll) + abs(pitch) > 0.05
-            let along = min(1, max(-1, moving ? roll * 0.8 + wander * 0.2 : wander))
-            mark(along: along, drift: moving ? pitch : wander * 0.4)
-        }
-    }
-
-    private func mark(along: Double, drift: Double) -> some View {
-        Canvas { context, size in
-            let radius = min(size.width, size.height) * 0.42
-            let center = CGPoint(x: size.width / 2 + drift * 6, y: size.height * 0.62)
-            let start = 200.0 * .pi / 180
-            let sweep = 140.0 * .pi / 180
-
-            func point(on unit: Double, extra: CGFloat = 0) -> CGPoint {
-                let theta = start + (unit + 1) / 2 * sweep
-                let reach = radius + extra
-                return CGPoint(
-                    x: center.x + CGFloat(cos(theta)) * reach,
-                    y: center.y + CGFloat(sin(theta)) * reach
-                )
-            }
-
-            var guide = Path()
-            for step in 0...48 {
-                let spot = point(on: -1 + 2 * Double(step) / 48)
-                if step == 0 { guide.move(to: spot) } else { guide.addLine(to: spot) }
-            }
-            context.stroke(guide, with: .color(.white.opacity(0.28)), style: StrokeStyle(lineWidth: 1, lineCap: .round))
-
-            for step in 0...28 {
-                let unit = -1 + 2 * Double(step) / 28
-                let theta = start + (unit + 1) / 2 * sweep
-                let major = step % 7 == 0
-                let inner = radius - (major ? 10 : 6)
-                let outer = radius + (major ? 4 : 1)
-                var tick = Path()
-                tick.move(to: CGPoint(x: center.x + CGFloat(cos(theta)) * inner, y: center.y + CGFloat(sin(theta)) * inner))
-                tick.addLine(to: CGPoint(x: center.x + CGFloat(cos(theta)) * outer, y: center.y + CGFloat(sin(theta)) * outer))
-                context.stroke(tick, with: .color(.white.opacity(major ? 0.9 : 0.45)), style: StrokeStyle(lineWidth: major ? 1.4 : 1, lineCap: .round))
-            }
-
-            let knob = point(on: along)
-            let head = CGRect(x: knob.x - 5, y: knob.y - 5, width: 10, height: 10)
-            context.fill(Path(ellipseIn: head), with: .color(.white))
-        }
     }
 }

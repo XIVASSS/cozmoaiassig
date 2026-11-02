@@ -14,9 +14,8 @@ struct SessionDetailView: View {
                     if packet.practice {
                         Pill(title: "Practice replay. Not a claim.", style: .white)
                     }
-                    Text((packet.sweep.country + " · " + packet.sweep.currency).uppercased())
-                        .font(Theme.mono(11))
-                        .tracking(1.4)
+                    Text(packet.sweep.country + " · " + packet.sweep.currency)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.ash)
                     StatCard(
                         eyebrow: "Version \(packet.sweep.packetVersion)",
@@ -252,9 +251,8 @@ struct SessionDetailView: View {
 
     private func roomMetric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title.uppercased())
-                .font(Theme.mono(11))
-                .tracking(1.2)
+            Text(title)
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(Theme.ash)
             Text(value)
                 .font(Theme.display(28))

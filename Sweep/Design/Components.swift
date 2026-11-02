@@ -27,7 +27,7 @@ enum Theme {
     static let radius: CGFloat = 30
 
     static func display(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .light, design: .serif)
+        .system(size: size, weight: .semibold)
     }
 
     static func sans(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
@@ -115,9 +115,8 @@ struct Pill: View {
     var style: Style = .white
 
     var body: some View {
-        Text(title.uppercased())
-            .font(Theme.mono(11))
-            .tracking(1.2)
+        Text(title)
+            .font(.caption.weight(.semibold))
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .foregroundStyle(foreground)
@@ -205,9 +204,8 @@ struct StatCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(eyebrow.uppercased())
-                .font(Theme.mono(11))
-                .tracking(1.4)
+            Text(eyebrow)
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.void.opacity(0.62))
             Text(value)
                 .font(Theme.display(72))
@@ -233,8 +231,7 @@ struct PageTitle: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(Theme.display(44))
-                .italic()
+                .font(.largeTitle.bold())
                 .foregroundStyle(Theme.cloud)
             if let subtitle {
                 Text(subtitle)
@@ -250,9 +247,8 @@ struct SectionLabel: View {
     var title: String
 
     var body: some View {
-        Text(title.uppercased())
-            .font(Theme.mono(12))
-            .tracking(1.6)
+        Text(title)
+            .font(.subheadline.weight(.semibold))
             .foregroundStyle(Theme.ash)
     }
 }
@@ -288,17 +284,16 @@ struct SessionRow: View {
             }
             Spacer(minLength: 8)
             if summary.practice {
-                Text("PRACTICE")
-                    .font(Theme.mono(11))
-                    .tracking(1)
+                Text("Practice")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.ash)
             } else if summary.packetVersion > 0 {
-                Text("V\(summary.packetVersion)")
-                    .font(Theme.mono(12))
+                Text("Version \(summary.packetVersion)")
+                    .font(.caption)
                     .foregroundStyle(Theme.ash)
             }
-            Image(systemName: "arrow.up.right")
-                .font(Theme.sans(14))
+            Image(systemName: "chevron.right")
+                .font(.body.weight(.semibold))
                 .foregroundStyle(Theme.ash)
         }
         .padding(18)
@@ -339,9 +334,8 @@ struct InventoryRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Text(kind.uppercased())
-                .font(Theme.mono(10))
-                .tracking(0.6)
+            Text(kind)
+                .font(.caption.weight(.semibold))
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, 10)
@@ -416,19 +410,21 @@ struct HunchMark: View {
     var body: some View {
         HStack(spacing: 8) {
             Button(action: accept) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 14, weight: .semibold))
+                Label("Keep", systemImage: "checkmark")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.void)
-                    .frame(width: 36, height: 36)
-                    .background(Theme.pure, in: Circle())
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(Theme.pure, in: Capsule())
             }
             .accessibilityLabel("Keep this hunch")
             Button(action: reject) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
+                Label("Remove", systemImage: "xmark")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.cloud)
-                    .frame(width: 36, height: 36)
-                    .background(Theme.steel, in: Circle())
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(Theme.steel, in: Capsule())
             }
             .accessibilityLabel("Remove this hunch")
         }
