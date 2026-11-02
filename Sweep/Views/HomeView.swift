@@ -15,6 +15,8 @@ struct HomeView: View {
     @State private var showHistory = false
     @State private var showReview = false
     @State private var showSettings = false
+    @AppStorage("sweep.didSeeOnboarding") private var didSeeOnboarding = false
+    @State private var showOnboarding = false
 
     var body: some View {
         GeometryReader { geo in
@@ -36,14 +38,14 @@ struct HomeView: View {
                             showHistory = true
                         } label: { latestCard(radius: corner - edge, bottomInset: 0) }
                             .buttonStyle(.plain)
-                            .popoverTip(LatestWalkTip(), arrowEdge: .bottom)
+                            .modifier(GatedTip(tip: LatestWalkTip(), show: didSeeOnboarding, arrow: .bottom))
                         Button {
                             ReviewTip().invalidate(reason: .actionPerformed)
                             Walkthrough.advance(to: 2)
                             showReview = true
                         } label: { reviewCard(radius: corner - edge, bottomInset: 0) }
                             .buttonStyle(.plain)
-                            .popoverTip(ReviewTip(), arrowEdge: .bottom)
+                            .modifier(GatedTip(tip: ReviewTip(), show: didSeeOnboarding, arrow: .bottom))
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(.horizontal, edge)
@@ -57,6 +59,7 @@ struct HomeView: View {
         .onAppear {
             place.start()
             model.reload()
+            if !didSeeOnboarding { showOnboarding = true }
         }
         .task { await Walkthrough.watch(StartWalkTip(), advanceTo: 1) }
         .task { await Walkthrough.watch(ReviewTip(), advanceTo: 2) }
@@ -76,6 +79,15 @@ struct HomeView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
+        .sheet(isPresented: $showOnboarding, onDismiss: finishOnboarding) {
+            OnboardingSheet(done: { showOnboarding = false })
+        }
+    }
+
+    private func finishOnboarding() {
+        didSeeOnboarding = true
+        StartWalkTip().invalidate(reason: .actionPerformed)
+        Walkthrough.advance(to: 1)
     }
 
     private func glassHero(topInset: CGFloat, corner: CGFloat) -> some View {
@@ -98,7 +110,7 @@ struct HomeView: View {
                         .foregroundStyle(.black)
                         .frame(width: 68, height: 68)
                         .background(.white, in: Circle())
-                    Text("Start walk")
+                    Text("Scan shelves")
                         .font(.headline)
                     Text("One room")
                         .font(.footnote)
@@ -107,8 +119,7 @@ struct HomeView: View {
                 .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Start a walk of one room")
-            .popoverTip(StartWalkTip(), arrowEdge: .top)
+            .accessibilityLabel("Scan the shelves in one room")
             .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -160,7 +171,7 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Practice the rules")
-                .popoverTip(PracticeTip(), arrowEdge: .bottom)
+                .modifier(GatedTip(tip: PracticeTip(), show: didSeeOnboarding, arrow: .bottom))
                 Spacer()
                 Button {
                     showSettings = true
@@ -311,6 +322,51 @@ struct HomeView: View {
         return "\(latest.reviewCount)"
     }
 
+}
+
+private struct GatedTip<T: Tip>: ViewModifier {
+    var tip: T
+    var show: Bool
+    var arrow: Edge
+
+    func body(content: Content) -> some View {
+        if show {
+            content.popoverTip(tip, arrowEdge: arrow)
+        } else {
+            content
+        }
+    }
+}
+
+private struct OnboardingSheet: View {
+    var done: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Scan the shelves")
+                .font(.largeTitle.bold())
+            Text("Sweep reads the books in one room. Show each shelf, then end the scan.")
+                .font(.body)
+            Text("Titles it can name are filed. Anything unsure waits for you to check.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 12)
+            Button(action: done) {
+                Text("Continue")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(.white, in: Capsule())
+                    .foregroundStyle(.black)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(24)
+        .padding(.top, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
 }
 
 /// Display corner radius in points. Apple's Liquid Glass layout calls this concentric:

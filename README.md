@@ -37,9 +37,9 @@ The product is one continuous pass of one room. The person is not asked to pull 
 
 | Requirement | What the app does |
 | --- | --- |
-| iPhone, no LiDAR | ARKit motion tracking plus on-device Vision. No RoomPlan. |
+| iPhone, no LiDAR | ARKit motion tracking plus on-device Vision. No RoomPlan. The phone’s tilt is not used for the interface. |
 | Scale | A bank card, ISO ID-1, 85.60 mm by 53.98 mm. Books use the card. The room uses the card’s correction of the tracking. If they disagree past the threshold, both numbers stay on the packet and they are not averaged. |
-| Eyes | Vision text, rectangles, image classification, blur, and glare. Frames are not sent to a cloud OCR. |
+| Eyes | Vision text, rectangles, image classification, blur, and glare. Frames are not sent to a cloud OCR. The camera stays off until Scan shelves. |
 | Mouth | The state machine chooses the sentence. Gemini Live may speak that sentence when a key is present. The model is never asked for a title, a price, or a total. |
 | Ear | On-device speech. An unclear phrase can be classified by Gemini into a fixed list: confirm, first edition, skip shelf, print, original, United States dollars, or none. |
 | Locale | The running app reads the country and currency from the phone’s location and starts the walk. The assignment text still says the claim locale is confirmed out loud or with a chip. That question was removed because it stopped the scan. |
@@ -62,29 +62,39 @@ Those bars were not met on the shelves that were graded. The comparison is in [H
 
 ## Pages
 
+### First open
+
+The first launch is one bottom sheet. It says what the app does: Sweep reads the books in one room, you show each shelf and end the scan, named titles are filed, and anything unsure waits to be checked. **Continue** closes it. It does not show again.
+
+![The first-open sheet. Scan the shelves, then Continue.](docs/screenshots/onboarding.png)
+
 ### Home
 
-The count is identified books on the latest finished packet. The city and the currency come from location. On this simulator that resolved to New York and USD. On the phone it is the city the phone is in. The dial’s plus starts one room. **Practice** starts the scripted replay. **Sweep** opens Settings. The left card opens Walks. The right card opens Review.
+The count is identified books on the latest finished packet. The city and the currency come from location. On this simulator that resolved to New York and USD. On the phone it is the city the phone is in. The large glass is 35/48 of the screen. The two cards share the rest, with a 12-point gap between the glass and the cards, between the cards, and at the sides and the bottom. The plus says **Scan shelves**, and the line under it says **One room**. **Practice** starts the scripted replay. The gear opens Settings. **Latest walk** opens the list of scans. **To review** opens the hunches.
 
-![Home. Books identified, the located city and currency, Practice, One room, the latest packet, and the review count.](docs/screenshots/home.png)
+There is no motion dial. The background drifts on its own.
 
-### The walk
+![Home. Scan shelves for one room, the located city and currency, the latest packet, and the review count.](docs/screenshots/home.png)
 
-Plus opens the camera and the walk starts. There is no currency question. The line under the picture says to walk the room once, then end the walk. Spines show up as they are logged. **End walk** is the only way it finishes. The phone then reads the saved frames, prices what it can, and speaks the count. The simulator picture is black because there is no camera. On the phone this is the live preview.
+After the sheet, TipKit shows one tip at a time. Closing a tip, or using the control it points at, reveals the next. The order is check hunches, then latest walk, then practice. A real scan also gets a tip on **End scan**. The review page gets a tip the first time it opens, explaining that the list is grouped by scan.
 
-![The walk, before any book is logged. End walk is the only way out.](docs/screenshots/walk.png)
+### The scan
+
+**Scan shelves** opens the camera and the scan starts. There is no currency question. The line under the picture says to show each shelf, then end the scan. Spines show up as they are logged. **End scan** is the only way it finishes. The phone then reads the saved frames, prices what it can, and speaks the count. The simulator picture is black because there is no camera. On the phone this is the live preview.
+
+![The scan, before any book is logged. End scan is the only way out.](docs/screenshots/walk.png)
 
 After a finished pass the same screen reads the result back. This one is the practice replay: three books, one identified, a sourced total, and four lines that still need a person.
 
-![The spoken result after a practice walk.](docs/screenshots/practice.png)
+![The spoken result after a practice scan.](docs/screenshots/practice.png)
 
-During a real walk the voice asks at most twice. You can still answer if it asked something. Most of the time you only show the shelves.
+During a real scan the voice asks at most twice. You can still answer if it asked something. Most of the time you only show the shelves.
 
 ### Walks
 
-Every finished walk stays in the list. A practice row is labeled practice. Opening a row opens the packet. **Practice the rules** runs the same rules on scripted observations and is not a claim.
+Every finished scan stays in the list. A practice row is labeled practice. Opening a row opens the packet. **Practice the rules** runs the same rules on scripted observations and is not a claim. A row that says “Walk open” was started and not finished, so it has no packet yet.
 
-![Walks. Practice the rules, and one row per finished walk.](docs/screenshots/walks.png)
+![Walks. Practice the rules, and one row per scan.](docs/screenshots/walks.png)
 
 ### Packet
 
@@ -101,9 +111,9 @@ Identified books do not get those buttons. The packet in the screenshot is the p
 
 ### Review
 
-Review is the task list. Nothing on it is in the money. The rows in this shot are unread spines, a lamp with no listing, and framed art that stays unpriced until someone says it is a print and a listing exists. Those rows are not hunches, so they have no check and no cross. A hunch row shows the candidate title and the two buttons.
+Review is the task list, grouped by the scan the lines came from. Each heading is the date and time of that scan, then the version or the practice label, and how many lines are left to check. Nothing on the page is in the money. The rows in this shot are unread spines, a book with no sourced price, and framed art that stays unpriced until someone says it is a print and a listing exists. Those rows are not hunches, so they have no check and no cross. A hunch row shows the candidate title and the two buttons. The tip at the top is the one-time TipKit note for this page.
 
-![Review. Unread spines, an unpriced lamp, and art that stays unpriced.](docs/screenshots/review.png)
+![Review, grouped by scan. Unread spines, a missing price, and art that stays unpriced.](docs/screenshots/review.png)
 
 ### Settings
 
@@ -137,7 +147,7 @@ These are the parts that took the time, because a wrong book is worse than a mis
 - A first edition, a signed book, a book first published before 1850, and a price at or above the threshold go to a person. The title is kept. The price is cleared. Framed art stays in appraisal until the person says it is a print, and it still has no price until a listing exists.
 - The report pass reads the saved frames after **End walk**, instead of trusting whichever frame happened to be sharp while the phone was moving. The whole frame is kept when it is already a clear shelf. Slices are used when the full frame is smeared and the slices recover real words.
 - Speech does not invent a title, a price, or a total. The sentence comes from the phone. Gemini, when a key is present, may speak that sentence or classify an unclear phrase into the fixed list.
-- The home layout was put back after it got pulled in from the edges. The glass runs edge to edge. The two cards keep a gap. The count says books identified.
+- The home glass runs edge to edge and takes 35/48 of the screen. The two cards sit in the rest, with a 12-point gap on the sides, the bottom, between the cards, and between the glass and the cards. The plus says Scan shelves, because that is the thing the button does. The count says books identified.
 
 ## How the reading changed
 
@@ -215,6 +225,14 @@ The app was built in this order. Each pass was a response to a run on the phone 
 
 9. **Hunches you can keep or drop.** On the packet page and on Review, each hunch has a check and a cross. Check searches that book online again and prices it. Cross removes it from the totals and leaves the line in the file. Identified books are left alone.
 
+10. **The screen, in Apple’s language.** The italic wordmark, the motion dial, and the tracked capital labels came off. The type is the system face. Practice is a capsule, Settings is the gear, and the background drifts on its own. The phone’s tilt is not read.
+
+11. **The home proportion.** The glass is 35/48 of the screen. The cards share what is left. The gap is 12 points at the sides, the bottom, between the two cards, and between the glass and the cards. The outer card corners follow the iPhone 17’s display curve.
+
+12. **Review, one scan at a time.** To review no longer mixes every hunch into one list. Each scan has its own heading, and only the lines from that scan sit under it.
+
+13. **A first sheet, then TipKit.** The first open is one bottom sheet that says Sweep reads the books on the shelves. The primary button says **Scan shelves**, not “start a walk”, because that is the action. After Continue, TipKit points at the remaining controls one at a time: hunches, the latest packet, practice, and end scan.
+
 ## Layout of the code
 
 - `Sweep/Domain/WalkEngine.swift` chooses the phase and the sentence.
@@ -227,4 +245,5 @@ The app was built in this order. Each pass was a response to a run on the phone 
 - `Sweep/Domain/PacketBuilder.swift` sums the lines and builds the review queue. Totals are not typed in by hand.
 - `Sweep/Domain/ReportRenderer.swift` writes the HTML report.
 - `Sweep/Domain/PracticeWalk.swift` is the scripted replay. It is labeled practice.
-- `Sweep/Views` is Home, the walk, Walks, the packet, Review, and Settings.
+- `Sweep/Views` is Home, the scan, Walks, the packet, Review, and Settings.
+- `Sweep/App/WalkthroughTips.swift` is the TipKit sequence. The first-open sheet lives on Home.

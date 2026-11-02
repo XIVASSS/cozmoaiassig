@@ -12,7 +12,7 @@ struct WalksView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     PageTitle(
                         title: "Walks",
-                        subtitle: "Each finished walk keeps its packet. Confirming a hunch writes the next version."
+                        subtitle: "Each finished scan keeps its packet. Confirming a hunch writes the next version."
                     )
                     Button {
                         practice = SweepSession(settings: model.settings, store: model.store, practice: true)
@@ -30,7 +30,7 @@ struct WalksView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Practice the rules")
                     if model.sessions.isEmpty {
-                        EmptyNote(text: "No walks yet. Start one from Home, or practice the rules.")
+                        EmptyNote(text: "No scans yet. Scan the shelves from Home, or practice the rules.")
                     }
                     ForEach(model.sessions) { summary in
                         NavigationLink {
@@ -76,7 +76,7 @@ struct ReviewView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     PageTitle(
                         title: "Review",
-                        subtitle: "Each walk keeps its own hunches. Nothing here is in the money."
+                        subtitle: "Each scan keeps its own hunches. Nothing here is in the money."
                     )
                     TipView(ReviewPageTip())
                     let walks = reviewWalks

@@ -84,7 +84,7 @@ struct WalkView: View {
         let filed = session.engine.books.filter { !$0.excluded }
         let rows = session.packet == nil ? Array(filed.suffix(4)) : filed
         return VStack(alignment: .leading, spacing: 6) {
-            Text(filed.isEmpty ? "Walk this room once, then end the walk." : "\(filed.count) \(filed.count == 1 ? "book" : "books")")
+            Text(filed.isEmpty ? "Show each shelf, then end the scan." : "\(filed.count) \(filed.count == 1 ? "book" : "books")")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.ash)
             Group {
@@ -160,7 +160,7 @@ struct WalkView: View {
     private var walkButton: String {
         if session.packet != nil { return "Done" }
         if session.reading || session.engine.phase == .finishing { return "Reading" }
-        return "End walk"
+        return "End scan"
     }
 
     private func begin() async {
@@ -205,7 +205,7 @@ struct SpineGuide: View {
     var straighten: Bool
 
     var body: some View {
-        Label(straighten ? "Hold still" : "Walk the shelf", systemImage: straighten ? "pause.circle" : "figure.walk")
+        Label(straighten ? "Hold still" : "Along the shelf", systemImage: straighten ? "pause.circle" : "books.vertical")
             .font(.headline)
             .foregroundStyle(Theme.cloud)
             .padding(.horizontal, 18)

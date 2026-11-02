@@ -23,30 +23,30 @@ enum Walkthrough {
 }
 
 struct StartWalkTip: Tip {
-    var title: Text { Text("Start a walk") }
-    var message: Text? { Text("Show the shelves in one room. Sweep reads the spines as you go.") }
-    var image: Image? { Image(systemName: "figure.walk") }
+    var title: Text { Text("Scan shelves") }
+    var message: Text? { Text("Show each shelf in this room. Sweep reads the books as you go.") }
+    var image: Image? { Image(systemName: "books.vertical") }
     var options: [any TipOption] { Walkthrough.once }
 }
 
 struct EndWalkTip: Tip {
-    var title: Text { Text("End the walk") }
-    var message: Text? { Text("When the room is done, stop. Sweep reads the saved frames and files the packet.") }
+    var title: Text { Text("End the scan") }
+    var message: Text? { Text("When the room is done, stop. Sweep reads the saved frames and files the books.") }
     var image: Image? { Image(systemName: "checkmark.circle") }
     var options: [any TipOption] { Walkthrough.once }
 }
 
 struct ReviewTip: Tip {
     var title: Text { Text("Check hunches") }
-    var message: Text? { Text("Open this when a walk needs a person. Keep a title that is right, or remove it.") }
+    var message: Text? { Text("Unsure books wait here. Keep a title that is right, or remove it.") }
     var image: Image? { Image(systemName: "checklist") }
     var rules: [Rule] { #Rule(Walkthrough.$step) { $0 >= 1 } }
     var options: [any TipOption] { Walkthrough.once }
 }
 
 struct ReviewPageTip: Tip {
-    var title: Text { Text("Grouped by walk") }
-    var message: Text? { Text("Each heading is one walk. The hunches under it came from that walk.") }
+    var title: Text { Text("Grouped by scan") }
+    var message: Text? { Text("Each heading is one room you scanned. The hunches under it came from those shelves.") }
     var image: Image? { Image(systemName: "rectangle.stack") }
     var options: [any TipOption] { Walkthrough.once }
 }
